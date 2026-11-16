@@ -1,0 +1,158 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght,SOFT@9..144,500..700,0..100&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "DM Sans", sans-serif;
+  --font-display: "Fraunces", serif;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    min-width: 320px;
+    background: #f4f1e9;
+    color: #24362b;
+    font-family: "DM Sans", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button,
+  a {
+    cursor: pointer;
+  }
+
+  button:focus-visible,
+  a:focus-visible {
+    outline: 2px solid #90775b;
+    outline-offset: 3px;
+  }
+}
+
+.font-display {
+  font-family: "Fraunces", serif;
+  font-variation-settings: "SOFT" 70;
+}
+
+.leaf {
+  position: absolute;
+  border-radius: 100% 0 100% 0;
+  background: #dfe6d7;
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.leaf-one {
+  width: 230px;
+  height: 420px;
+  left: -130px;
+  top: 30px;
+  transform: rotate(-23deg);
+}
+
+.leaf-two {
+  width: 170px;
+  height: 300px;
+  right: -105px;
+  top: 210px;
+  transform: rotate(32deg);
+  background: #e4d8c7;
+}
+
+.restaurant-card {
+  min-width: 0;
+  border: 1px solid rgba(41, 79, 59, 0.09);
+  border-radius: 28px;
+  background: #f8f5ed;
+  padding: 9px 9px 16px;
+  box-shadow: 0 10px 35px rgba(52, 68, 57, 0.06);
+  cursor: pointer;
+  transition: 260ms ease;
+}
+
+.restaurant-card:hover {
+  border-color: rgba(41, 79, 59, 0.18);
+  box-shadow: 0 20px 45px rgba(42, 61, 48, 0.13);
+  transform: translateY(-5px);
+}
+
+.save-button {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  width: 39px;
+  height: 39px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.9);
+  color: #294f3b;
+  box-shadow: 0 5px 15px rgba(20, 36, 27, 0.12);
+  backdrop-filter: blur(8px);
+  transition: 160ms ease;
+}
+
+.save-button:hover {
+  transform: scale(1.07);
+}
+
+.save-button.saved {
+  background: #294f3b;
+  color: #fff;
+}
+
+.save-button.saved svg {
+  fill: currentColor;
+}
+
+.match-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 999px;
+  background: #e9e5dc;
+  padding: 7px 11px;
+  color: #6d675e;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.match-tag.matched {
+  background: #d7e2d3;
+  color: #38563f;
+}
+
+.detail-modal {
+  animation: modal-in 320ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 640px) {
+  .leaf-one {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+dialog::backdrop { background: #14241ba6; backdrop-filter: blur(5px); }
