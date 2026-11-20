@@ -24,7 +24,8 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-If you use conda instead, activate an environment that has pandas and pyarrow (e.g. `conda activate info376`) wherever this README says to activate the virtual environment.
+The first time the API starts, it downloads the WordNet data used for query expansion (needs internet once). If the download fails, search still works without synonyms.
+
 
 To run the notebooks, also install Jupyter in the same environment:
 
@@ -90,7 +91,9 @@ Review indexing is capped at 10,000 reviews, following the notebook sample size.
 
 The API uses the notebook's tokenizer and BM25 parameters (`k1=1.5`, `b=0.75`), adds name/category documents for direct business searches, and sums matching document scores per restaurant. This is an adaptation of the notebook, so rankings differ from review-only BM25. City selection filters businesses by city; it does not calculate distance from the user.
 
-Review counts and average ratings come from business metadata, not the indexed sample. Excerpts are matching review text, not generated restaurant descriptions. Matched-term tags show query terms found in indexed documents. The API does not currently load `ambience.json` for query expansion.
+Review counts and average ratings come from business metadata, not the indexed sample. Excerpts are matching review text, not generated restaurant descriptions. Matched-term tags show query terms found in indexed documents. Matched-term tags include synonym matches.
+
+**Query expansion.** Each query word is expanded with WordNet (via NLTK): via base form (`noodles` → `noodle`) plus up to 5 single-word synonyms from its 2 most common senses (`cheap` → `inexpensive`). Only synonyms that appear in the index are used, and they will count half as much as the typed words (`EXPANSION_WEIGHT = 0.5` in `server/search.py`), so exact matches will still rank first. The API does not currently load `ambience.json`.
 
 ## Development
 
@@ -105,7 +108,7 @@ Review counts and average ratings come from business metadata, not the indexed s
 | `load_data.py` | Typed data-loading helpers for notebook work |
 | `server.py` | Local HTTP API entry point, bound to loopback only |
 | `server/data_loader.py` | Adapters for notebook exports and metadata fallback |
-| `server/search.py` | Tokenizer, inverted index, and BM25 scoring |
+| `server/search.py` | Tokenizer, inverted index, BM25 scoring, and WordNet query expansion |
 | `src/App.tsx` | Search form, city selection, result cards, session-only save controls, and restaurant details dialog |
 | `src/index.css` | Cream-and-green styling, responsive layout, and Tailwind v4 styles |
 | `src/main.tsx`, `index.html` | React entry point and HTML shell |
@@ -138,6 +141,7 @@ See `clean_data.ipynb` for what was removed and why (permanently closed restaura
   "query": "ramen",
   "city": "Seattle",
   "total": 1,
+  "expansions": {},
   "results": [
     {
       "id": "business-gmap-id",
