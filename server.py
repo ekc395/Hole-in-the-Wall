@@ -2,7 +2,7 @@
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
-from server.search import SearchService
+from server.search import SearchService, tokenize
 
 
 def make_handler(service):
@@ -31,7 +31,8 @@ def make_handler(service):
             query = params.get('q', [''])[0]
             city = params.get('city', [None])[0]
             results = service.search(query, city, limit)
-            self.send_json({'query': query, 'city': city, 'total': len(results),
+            expansions = service.expand_query(tokenize(query))
+            self.send_json({'query': query, 'city': city, 'total': len(results), 'expansions': expansions,
                             'results': results, 'data_status': service.status})
     return Handler
 
