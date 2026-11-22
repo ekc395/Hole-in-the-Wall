@@ -14,6 +14,10 @@ def json_lines(path):
                 yield json.loads(line)
 
 
+def coordinate(value):
+    return float(value) if value not in (None, '') else None
+
+
 def load_data(data_dir=DATA_DIR):
     csv_path = data_dir / 'restaurants.csv'
     if csv_path.exists():
@@ -41,6 +45,7 @@ def load_data(data_dir=DATA_DIR):
             'category_primary': next(iter(categories), 'Restaurant'), 'categories': categories,
             'rating': float(business.get('avg_rating') or 0),
             'review_count': int(business.get('num_of_reviews') or 0),
+            'latitude': coordinate(business.get('latitude')), 'longitude': coordinate(business.get('longitude')),
             'summary_text': '', 'matched_terms': [],
         }
 

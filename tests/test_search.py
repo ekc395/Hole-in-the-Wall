@@ -2,7 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from server.search import SearchService, tokenize
+from server.search import SearchService, haversine_miles, tokenize
 
 
 class SearchTests(unittest.TestCase):
@@ -31,6 +31,25 @@ class SearchTests(unittest.TestCase):
             self.assertEqual(results[0]['review_count'], 50)
             self.assertIn('Cozy', results[0]['summary_text'])
             self.assertEqual(service.status['indexed_reviews'], 2)
+
+    def test_location_filter(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            # Pike Place (~0 mi), Bellevue (~6.5 mi), and one without coordinates.
+            businesses = [dict(gmap_id='1', name='Pike Ramen', city='Seattle', latitude=47.6097, longitude=-122.3422, category=['Restaurant']),
+                          dict(gmap_id='2', name='Bellevue Ramen', city='Bellevue', latitude=47.6101, longitude=-122.2015, category=['Restaurant']),
+                          dict(gmap_id='3', name='Nowhere Ramen', city='Seattle', category=['Restaurant'])]
+            (root / 'meta-SeattleArea.json').write_text(''.join(json.dumps(x)+'\n' for x in businesses))
+            service = SearchService(root)
+            self.assertAlmostEqual(haversine_miles(47.6097, -122.3422, 47.6101, -122.2015), 6.53, places=1)
+            near = service.search('ramen', lat=47.6097, lon=-122.3422, radius=2)
+            self.assertEqual([r['id'] for r in near], ['1'])
+            self.assertEqual(near[0]['distance_miles'], 0.0)
+            self.assertEqual({r['id'] for r in service.search('', lat=47.6097, lon=-122.3422, radius=10)}, {'1', '2'})
+            unfiltered = {r['id']: r['distance_miles'] for r in service.search('ramen', lat=47.6097, lon=-122.3422)}
+            self.assertEqual(len(unfiltered), 3)
+            self.assertIsNone(unfiltered['3'])
+            self.assertTrue(all(r['distance_miles'] is None for r in service.search('ramen')))
 
 
 if __name__ == '__main__':

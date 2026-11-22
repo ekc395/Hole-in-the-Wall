@@ -67,6 +67,12 @@ class WordNetExpander:
         return ([base] if base != term else []) + synonyms
 
 
+def haversine_miles(lat1, lon1, lat2, lon2):
+    lat1, lon1, lat2, lon2 = map(math.radians, (lat1, lon1, lat2, lon2))
+    a = math.sin((lat2 - lat1) / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin((lon2 - lon1) / 2) ** 2
+    return 2 * 3958.8 * math.asin(math.sqrt(a))
+
+
 class SearchService:
     def __init__(self, data_dir=None, expander=None):
         self.records, reviews, self.status = load_data() if data_dir is None else load_data(data_dir)
@@ -92,13 +98,18 @@ class SearchService:
                 expansions[term] = synonyms
         return expansions
 
-    def search(self, query, city=None, limit=20, expand=True):
+    def search(self, query, city=None, limit=20, expand=True, lat=None, lon=None, radius=None):
         terms = tokenize(query)
         weights = Counter(terms)  
         if expand:
             for synonyms in self.expand_query(terms).values():
                 for synonym in synonyms:
                     weights[synonym] = max(weights[synonym], EXPANSION_WEIGHT)
+        distances = {}
+        if lat is not None and lon is not None:
+            distances = {gid: haversine_miles(lat, lon, r['latitude'], r['longitude'])
+                         for gid, r in self.records.items() if r['latitude'] is not None and r['longitude'] is not None}
+        in_radius = lambda gid: radius is None or distances.get(gid, math.inf) <= radius
         scores = defaultdict(float)
         matches = defaultdict(set)
         excerpts = {}
@@ -110,6 +121,8 @@ class SearchService:
                 gid, text, is_review = self.documents[doc_id]
                 if city and city.casefold() != 'anywhere' and (self.records[gid]['city'] or '').casefold() != city.casefold():
                     continue
+                if not in_radius(gid):
+                    continue
                 norm = 1 - .75 + .75 * self.lengths[doc_id] / self.avgdl
                 score = weight * idf * tf * 2.5 / (tf + 1.5 * norm)
                 scores[gid] += score
@@ -119,6 +132,8 @@ class SearchService:
                     excerpts[gid] = text[:600] + ('…' if len(text) > 600 else '')
         candidates = scores if terms else self.records
         ids = [gid for gid in candidates if not city or city.casefold() == 'anywhere' or (self.records[gid]['city'] or '').casefold() == city.casefold()]
+        ids = [gid for gid in ids if in_radius(gid)]
         ids.sort(key=lambda gid: (-scores.get(gid, 0), -self.records[gid]['rating'], -self.records[gid]['review_count'], gid))
         return [{**self.records[gid], 'score': round(scores.get(gid, 0), 4),
-                 'matched_terms': sorted(matches[gid]), 'summary_text': excerpts.get(gid, '')} for gid in ids[:limit]]
+                 'matched_terms': sorted(matches[gid]), 'summary_text': excerpts.get(gid, ''),
+                 'distance_miles': round(distances[gid], 2) if gid in distances else None} for gid in ids[:limit]]

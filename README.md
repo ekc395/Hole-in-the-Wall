@@ -89,7 +89,7 @@ The API reads saved data files; it does not execute notebooks or read their disp
 
 Review indexing is capped at 10,000 reviews, following the notebook sample size. The Parquet path reads the first batch of up to 10,000 rows and filters unusable reviews; the JSON path collects the first 10,000 usable, deduplicated reviews belonging to loaded businesses. Some restaurants therefore have no indexed reviews.
 
-The API uses the notebook's tokenizer and BM25 parameters (`k1=1.5`, `b=0.75`), adds name/category documents for direct business searches, and sums matching document scores per restaurant. This is an adaptation of the notebook, so rankings differ from review-only BM25. City selection filters businesses by city; it does not calculate distance from the user.
+The API uses the notebook's tokenizer and BM25 parameters (`k1=1.5`, `b=0.75`), adds name/category documents for direct business searches, and sums matching document scores per restaurant. This is an adaptation of the notebook, so rankings differ from review-only BM25. City selection filters businesses by city. If the request includes the user's location (`lat`, `lon`), the API computes straight-line (haversine) distance to each restaurant and can drop those outside a `radius` in miles. Distance filters results but does not yet affect ranking.
 
 Review counts and average ratings come from business metadata, not the indexed sample. Excerpts are matching review text, not generated restaurant descriptions. Matched-term tags show query terms found in indexed documents. Matched-term tags include synonym matches.
 
@@ -148,13 +148,16 @@ See `clean_data.ipynb` for what was removed and why (permanently closed restaura
       "name": "Example result",
       "city": "Seattle",
       "address": "Business address",
+      "latitude": 47.61,
+      "longitude": -122.34,
       "category_primary": "Ramen restaurant",
       "categories": ["Ramen restaurant"],
       "rating": 4.5,
       "review_count": 50,
       "summary_text": "",
       "matched_terms": ["ramen"],
-      "score": 1.2
+      "score": 1.2,
+      "distance_miles": null
     }
   ],
   "data_status": {
@@ -166,7 +169,9 @@ See `clean_data.ipynb` for what was removed and why (permanently closed restaura
 }
 ```
 
-This is an illustrative response, not a real business. `total` counts returned results, capped by `limit` (1–100; default 20). Omit `city` to search all cities. An empty query lists businesses by rating. `GET /api/health` reports data sources and indexed review count.
+This is an illustrative response, not a real business. `total` counts returned results, capped by `limit` (1–100; default 20). Omit `city` to search all cities. An empty query lists businesses by rating.
+
+Optional location params: `lat` and `lon` (the user's position, given together) add `distance_miles` to each result; adding `radius` (miles, > 0) keeps only restaurants within that distance, e.g. `/api/search?q=ramen&lat=47.61&lon=-122.34&radius=2`. Without `lat`/`lon`, `distance_miles` is `null`. Invalid combinations return 400. `GET /api/health` reports data sources and indexed review count.
 
 ### Tests
 
