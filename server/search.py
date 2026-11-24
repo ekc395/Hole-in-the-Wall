@@ -7,7 +7,10 @@ from .data_loader import load_data
 
 EXPANSION_WEIGHT = 0.5  
 MAX_SYNSETS = 2         
-MAX_SYNONYMS = 5        
+MAX_SYNONYMS = 5
+# Hybrid ranker: weighted sum of keyword (BM25 / best BM25), rating (/ 5), and distance (1 / (1 + miles / scale)).
+RANKER_WEIGHTS = {'keyword': 0.6, 'rating': 0.25, 'distance': 0.15}
+DISTANCE_SCALE_MILES = 1.0
 
 STOPWORDS = set('''a an and are as at be been but by for from had has have he her his i if in into is it its
 me my of on or our she so than that the their them they this to was we were what when which
@@ -98,7 +101,8 @@ class SearchService:
                 expansions[term] = synonyms
         return expansions
 
-    def search(self, query, city=None, limit=20, expand=True, lat=None, lon=None, radius=None):
+    def search(self, query, city=None, limit=20, expand=True, lat=None, lon=None, radius=None,
+               ranker_weights=None):
         terms = tokenize(query)
         weights = Counter(terms)  
         if expand:
@@ -133,7 +137,17 @@ class SearchService:
         candidates = scores if terms else self.records
         ids = [gid for gid in candidates if not city or city.casefold() == 'anywhere' or (self.records[gid]['city'] or '').casefold() == city.casefold()]
         ids = [gid for gid in ids if in_radius(gid)]
-        ids.sort(key=lambda gid: (-scores.get(gid, 0), -self.records[gid]['rating'], -self.records[gid]['review_count'], gid))
-        return [{**self.records[gid], 'score': round(scores.get(gid, 0), 4),
+        # Without a location, drop the distance term and renormalize the remaining weights.
+        w = {**RANKER_WEIGHTS, **(ranker_weights or {})}
+        if lat is None or lon is None:
+            w['distance'] = 0
+        total = sum(w.values()) or 1
+        best = max((scores.get(gid, 0) for gid in ids), default=0) or 1
+        rank_scores = {gid: (w['keyword'] * scores.get(gid, 0) / best
+                             + w['rating'] * self.records[gid]['rating'] / 5
+                             + w['distance'] * (1 / (1 + distances[gid] / DISTANCE_SCALE_MILES) if gid in distances else 0)) / total
+                       for gid in ids}
+        ids.sort(key=lambda gid: (-rank_scores[gid], -scores.get(gid, 0), -self.records[gid]['rating'], -self.records[gid]['review_count'], gid))
+        return [{**self.records[gid], 'score': round(scores.get(gid, 0), 4), 'rank_score': round(rank_scores[gid], 4),
                  'matched_terms': sorted(matches[gid]), 'summary_text': excerpts.get(gid, ''),
                  'distance_miles': round(distances[gid], 2) if gid in distances else None} for gid in ids[:limit]]

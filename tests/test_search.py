@@ -51,6 +51,22 @@ class SearchTests(unittest.TestCase):
             self.assertIsNone(unfiltered['3'])
             self.assertTrue(all(r['distance_miles'] is None for r in service.search('ramen')))
 
+    def test_hybrid_ranker(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            # Same keyword match; the near one is rated lower than the far one.
+            businesses = [dict(gmap_id='near', name='Ramen Near', latitude=47.6097, longitude=-122.3422, avg_rating=3.0, category=['Restaurant']),
+                          dict(gmap_id='far', name='Ramen Far', latitude=47.6101, longitude=-122.2015, avg_rating=5.0, category=['Restaurant'])]
+            (root / 'meta-SeattleArea.json').write_text(''.join(json.dumps(x)+'\n' for x in businesses))
+            service = SearchService(root)
+            ids = lambda **kw: [r['id'] for r in service.search('ramen', **kw)]
+            here = dict(lat=47.6097, lon=-122.3422)
+            self.assertEqual(ids(), ['far', 'near'])  # no location: rating decides
+            self.assertEqual(ids(**here), ['near', 'far'])  # distance outweighs the rating gap
+            self.assertEqual(ids(**here, ranker_weights={'distance': 0}), ['far', 'near'])
+            top = service.search('ramen', **here)[0]
+            self.assertAlmostEqual(top['rank_score'], 0.6 + 0.25 * 3 / 5 + 0.15, places=4)
+
 
 if __name__ == '__main__':
     unittest.main()
